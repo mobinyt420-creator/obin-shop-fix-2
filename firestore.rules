@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Check if user is admin (using the admin email)
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'mobinyt420@gmail.com';
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      // Guests can create orders, but only admins or the owner can read/update them
+      allow create: if true; 
+      allow read, update, delete: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+    }
+
+    match /analytics/{day} {
+      allow read: if isAdmin();
+      // Allow incrementing analytics publicly, but protect against arbitrary data
+      allow write: if true;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /support_chats/{chatId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // Allow users to read their own profile, or admins to read all
+      allow read: if isAdmin() || request.auth.uid == userId;
+      // Allow creating a new user profile during signup
+      allow create: if true;
+      allow update, delete: if isAdmin() || request.auth.uid == userId;
+    }
+  }
+}

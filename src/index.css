@@ -1,0 +1,103 @@
+/* Base reset and styling */
+
+@import "tailwindcss";
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-none {
+    -ms-overflow-style: none !important;  /* IE and Edge */
+    scrollbar-width: none !important;  /* Firefox */
+  }
+}
+
+/* Hind Siliguri Professional Bengali Typography and Pulsating Glow support */
+.font-siliguri {
+  font-family: 'Hind Siliguri', 'Inter', sans-serif !important;
+}
+
+
+
+
+
+/* ==========================================================================
+   COD BAZAR - MASTER LAYOUT & COMPREHENSIVE PREMIUM MOBILE-FIRST STYLESHEET
+   ========================================================================== */
+
+/* Ensure global layout is neat and respects borders */
+#global-application-layout {
+  overflow-x: hidden !important;
+  min-height: 100vh !important;
+  background-color: #FFFFFF !important; /* Pure white for pro look */
+}
+
+
+
+
+/* Add bottom padding to main layout to avoid bottom nav clipping on mobile */
+@media (max-width: 767px) {
+  #root-viewport-panel,
+  main {
+    padding-bottom: calc(56px + 2rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+
+/* 3. PREMIUM MOBILE-FIRST UX, INERTIA SCROLLING, & SHARP INTERACTIVE ANIMATIONS */
+
+/* Butter-smooth momentum-based physical scrolling gestures for touch screen web views */
+html, 
+body {
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important; /* Native-like visual speed */
+  overscroll-behavior-y: normal !important; /* Smooth drag-back and overscroll bounce */
+}
+
+/* Remove default taps highlights on iOS & Android Safari/Chrome */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+/* Responsive Active-State Touch Feedback (subtle click down-scaling - No Robotic feel) */
+
+
+/* Micro tap contraction with perfect spring animation recover scale */
+
+
+/* Subtle, lively hover enhancements on desktop, keeping scales normal on touch devices */
+
+
+/* Ensure helpline FAB handles safe space when bottom navigation panel is loaded */
+#floating-helpline-fab {
+  bottom: calc(52px + 12px + env(safe-area-inset-bottom, 0px)) !important;
+  right: 12px !important;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+@media (min-width: 768px) {
+  #floating-helpline-fab {
+    bottom: 24px !important;
+  }
+}
+@keyframes slow-ping { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.5); opacity: 0; } 100% { transform: scale(1); opacity: 0; } } .animate-slow-ping { animation: slow-ping 3s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+
+@keyframes shimmer {
+  0% { transform: translateX(-200%) skewX(-20deg); }
+  100% { transform: translateX(200%) skewX(-20deg); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+}
+
