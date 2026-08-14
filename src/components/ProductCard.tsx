@@ -104,7 +104,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
           {/* Product Title: Compact, elegant typography, tight leading, unified fixed height to prevent vertical misalignment */}
           <h4 
             onClick={() => onSelect(product)}
-            className="font-semibold text-slate-900 antialiased tracking-tight text-sm md:text-base leading-snug hover:text-[#2563EB] cursor-pointer transition-colors line-clamp-2"
+            className="font-semibold text-slate-900 antialiased tracking-tight text-sm md:text-base leading-snug hover:text-[#2563EB] cursor-pointer transition-colors line-clamp-2 min-h-[40px] sm:min-h-[44px]"
             title={product.name}
           >
             {product.name}

@@ -9,12 +9,12 @@ import { PromoSlider } from './components/PromoSlider';
 import { Categories } from './components/Categories';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetailModal } from './components/ProductDetailModal';
-const CheckoutView = React.lazy(() => import('./components/CheckoutView').then(m => ({ default: m.CheckoutView })));
+import { CheckoutView } from './components/CheckoutView';
 import { CartDrawer } from './components/CartDrawer';
 import { SidebarMenu } from './components/SidebarMenu';
 import { SearchModal } from './components/SearchModal';
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-import { collection, addDoc, query, where, getDocs, onSnapshot, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, onSnapshot, doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 
 // Universal Retry Wrapper
 const withRetry = async (fn, retries = 3, delay = 1000) => {
@@ -66,8 +66,23 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_products');
+      if (cached) return JSON.parse(cached);
+    } catch(e) {}
+    return [];
+  });
+  
+  // If we have cached products, don't show the loading skeleton!
+  const [productsLoading, setProductsLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_products');
+      return !cached;
+    } catch(e) {
+      return true;
+    }
+  });
 
   useEffect(() => {
     if (!db) {
@@ -85,11 +100,50 @@ export default function App() {
       return;
     }
     
+    // Load categories and banners from cache first
+    try {
+      const cachedCats = localStorage.getItem('cached_categories');
+      if (cachedCats) setCategories(JSON.parse(cachedCats));
+      const cachedBanners = localStorage.getItem('cached_banners');
+      if (cachedBanners) setSlides(JSON.parse(cachedBanners));
+    } catch(e) {}
+
+    // Check if we are opening a specific product deep link
+    const path = typeof window !== 'undefined' ? window.location.hash : '';
+    let initialProductId: string | null = null;
+    if (path.startsWith('#/product/')) {
+      initialProductId = path.replace('#/product/', '');
+    }
+
+    if (initialProductId) {
+      // Fetch ONLY the required product data immediately to bypass waiting for all products
+      getDoc(doc(db, 'products', initialProductId)).then(docSnap => {
+        if (docSnap.exists()) {
+          const prod = { id: docSnap.id, ...docSnap.data() } as Product;
+          setProducts(prev => {
+            // Avoid duplicate if the main subscription already added it
+            if (prev.find(p => p.id === prod.id)) return prev;
+            const updated = [prod, ...prev];
+            localStorage.setItem('cached_products', JSON.stringify(updated));
+            return updated;
+          });
+          setProductsLoading(false); // Page becomes usable instantly!
+        } else {
+          setInvalidProduct(true);
+          setProductsLoading(false);
+        }
+      }).catch(err => {
+        console.error("Failed to fetch initial product", err);
+        setProductsLoading(false);
+      });
+    }
+
     const unsubSlides = onSnapshot(
       collection(db, 'banners'),
       (snapshot) => {
         const fetchedSlides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Slide));
         setSlides(fetchedSlides);
+        localStorage.setItem('cached_banners', JSON.stringify(fetchedSlides));
       },
       (error) => {
         console.error("Error fetching banners:", error);
@@ -101,6 +155,7 @@ export default function App() {
       (snapshot) => {
         const fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
         setCategories(fetchedCategories);
+        localStorage.setItem('cached_categories', JSON.stringify(fetchedCategories));
       },
       (error) => {
         console.error("Error fetching categories:", error);
@@ -113,6 +168,11 @@ export default function App() {
         const fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(fetchedProducts);
         setProductsLoading(false);
+        try {
+          localStorage.setItem('cached_products', JSON.stringify(fetchedProducts));
+        } catch (e) {
+          console.warn("Could not cache products, likely quota exceeded");
+        }
       },
       (error) => {
         console.error("Error fetching products:", error);
@@ -149,9 +209,23 @@ export default function App() {
       return { ...prev, [section]: current + 4 };
     });
   };
-  const [view, setView] = useState<'home' | 'search' | 'checkout' | 'account' | 'admin'>('home');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [view, setView] = useState<'home' | 'search' | 'checkout' | 'account' | 'admin' | 'category_products' | 'offers'>(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (hash.startsWith('#/checkout')) return 'checkout';
+    if (hash.startsWith('#/account')) return 'account';
+    if (hash.startsWith('#/admin')) return 'admin';
+    if (hash.startsWith('#/search')) return 'search';
+    if (hash.startsWith('#/offers')) return 'offers';
+    if (hash.startsWith('#/category/')) return 'category_products';
+    return 'home';
+  });
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (hash.startsWith('#/category/')) return hash.replace('#/category/', '');
+    return 'all';
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [invalidProduct, setInvalidProduct] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -159,13 +233,14 @@ export default function App() {
   // Sync URL to State
   useEffect(() => {
     const path = location.pathname;
-    if (path.startsWith('/product/') && products.length > 0) {
+    if (path.startsWith('/product/') && !productsLoading) {
       const pid = path.replace('/product/', '');
       const prod = products.find(p => p.id === pid);
       if (prod && (!selectedProduct || selectedProduct.id !== prod.id)) {
         setSelectedProduct(prod);
+        setInvalidProduct(false);
       } else if (!prod && !selectedProduct) {
-        // If product not found, maybe go home?
+        setInvalidProduct(true);
       }
     } else if (path.startsWith('/category/')) {
       const cid = path.replace('/category/', '');
@@ -173,33 +248,41 @@ export default function App() {
         setSelectedCategory(cid);
         setView('category_products');
         setSelectedProduct(null);
+        setInvalidProduct(false);
       }
     } else if (path === '/checkout' && view !== 'checkout') {
       setView('checkout');
       setSelectedProduct(null);
+      setInvalidProduct(false);
     } else if (path === '/account' && view !== 'account') {
       setView('account');
       setSelectedProduct(null);
+      setInvalidProduct(false);
     } else if (path === '/search' && view !== 'search') {
       setView('search');
       setSelectedProduct(null);
+      setInvalidProduct(false);
     } else if (path === '/admin' && view !== 'admin') {
       setView('admin');
       setSelectedProduct(null);
+      setInvalidProduct(false);
     } else if (path === '/offers' && view !== 'offers') {
       setView('offers');
       setSelectedProduct(null);
+      setInvalidProduct(false);
     } else if (path === '/' && (view !== 'home' || selectedCategory !== 'all' || selectedProduct !== null)) {
       if (view !== 'home') setView('home');
       if (selectedCategory !== 'all') setSelectedCategory('all');
       if (selectedProduct !== null) setSelectedProduct(null);
+      setInvalidProduct(false);
     }
-  }, [location.pathname, products]);
+  }, [location.pathname, products, productsLoading]);
 
   // Sync State to URL
   useEffect(() => {
     let targetPath = '/';
     if (selectedProduct) targetPath = `/product/${selectedProduct.id}`;
+    else if (invalidProduct) targetPath = location.pathname; // keep the invalid product URL
     else if (view === 'category_products' && selectedCategory && selectedCategory !== 'all') targetPath = `/category/${selectedCategory}`;
     else if (view === 'checkout') targetPath = '/checkout';
     else if (view === 'account') targetPath = '/account';
@@ -207,10 +290,13 @@ export default function App() {
     else if (view === 'search') targetPath = '/search';
     else if (view === 'offers') targetPath = '/offers';
 
+    // Avoid redirecting prematurely if waiting for products
+    if (location.pathname.startsWith('/product/') && productsLoading && !selectedProduct) return;
+
     if (location.pathname !== targetPath) {
-      navigate(targetPath);
+      navigate(targetPath, { replace: true });
     }
-  }, [view, selectedCategory, selectedProduct]);
+  }, [view, selectedCategory, selectedProduct, invalidProduct, productsLoading]);
 
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1947,6 +2033,29 @@ export default function App() {
 
       {/* Product Detail Modal */}
       <AnimatePresence>
+        {invalidProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="w-24 h-24 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-6">
+              <Package className="w-12 h-12" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Product Not Found</h2>
+            <p className="text-gray-500 mb-8 max-w-sm">The product you are looking for might have been removed or the link is invalid.</p>
+            <button
+              onClick={() => {
+                setInvalidProduct(false);
+                navigate('/');
+              }}
+              className="bg-[#FF6B00] text-white px-8 py-3.5 rounded-xl font-bold tracking-wide hover:bg-[#e66000] active:scale-95 transition-all shadow-lg shadow-[#FF6B00]/20"
+            >
+              Continue Shopping
+            </button>
+          </motion.div>
+        )}
         {selectedProduct && (
           <ProductDetailModal
             product={selectedProduct}
