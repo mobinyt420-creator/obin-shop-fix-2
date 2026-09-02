@@ -70,7 +70,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (lowerMsg.includes('save') || lowerMsg.includes('%')) return 'bg-blue-600 border-blue-500';
     return 'bg-blue-600 border-blue-500';
   };
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'categories' | 'banners' | 'coupons' | 'reports' | 'finance' | 'settings' | 'users'>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [orderFilterTab, setOrderFilterTab] = useState<'today' | 'all'>('today');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const toggleOrderExpand = (id: string) => {
@@ -182,7 +182,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       setIsUploadingImage(true);
-      const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '50be96ff0f81d113824bb8d3df6c6328'; // Fallback key for demo purposes if needed
+      const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY || '50be96ff0f81d113824bb8d3df6c6328'; // Fallback key for demo purposes if needed
       
       const formData = new FormData();
       formData.append('image', file);
@@ -454,13 +454,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // For top row
   const todayOrdersCount = ordersLast24h.length;
-  const todayPendingCount = ordersLast24h.filter(o => o.status === 'Pending' || o.status === 'Pending Verification').length;
+  const todayPendingCount = ordersLast24h.filter(o => o.status === 'Pending' || o.status === ('Pending Verification' as any)).length;
   const todayProcessingCount = ordersLast24h.filter(o => o.status === 'Processing').length;
   const todayCompletedCount = ordersLast24h.filter(o => o.status === 'Completed').length;
   const todayCancelledCount = ordersLast24h.filter(o => o.status === 'Cancelled').length;
   const todayReturnedCount = ordersLast24h.filter(o => o.status === 'Returned').length;
   
-  const pendingCount = fbOrders.filter(o => o.status === 'Pending' || o.status === 'Pending Verification').length;
+  const pendingCount = fbOrders.filter(o => o.status === 'Pending' || o.status === ('Pending Verification' as any)).length;
   const completedCount = fbOrders.filter(o => o.status === 'Completed').length;
   const cancelledCount = fbOrders.filter(o => o.status === 'Cancelled').length;
   const returnedCount = fbOrders.filter(o => o.status === 'Returned').length;
@@ -711,12 +711,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-black text-blue-800 text-lg bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">{ord.orderId}</span>
                       <span className={`text-xs font-black px-2.5 py-1 rounded-full border ${
+                        ord.status === ('Pending Verification' as any) ? 'bg-amber-100 text-amber-800 border-amber-200' :
                         ord.status === 'Pending' ? 'bg-amber-100 text-amber-800 border-amber-200' :
                         ord.status === 'Processing' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                         ord.status === 'Completed' ? 'bg-green-100 text-green-800 border-green-200' :
                         ord.status === 'Returned' ? 'bg-rose-100 text-rose-800 border-rose-200' :
                         'bg-red-100 text-red-800 border-red-200'
-                      }`}>{ord.status}</span>
+                      }`}>{ord.status === ('Pending Verification' as any) && <Clock className="w-3 h-3 inline mr-1" />}{ord.status}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-bold text-gray-500 hidden sm:flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> {new Date(ord.orderDate).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
@@ -785,6 +786,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {/* 4-Stage Status Control */}
                         <div className="flex gap-2 pt-3 border-t border-gray-100 flex-wrap">
                           <button onClick={() => handleUpdateStatus(ord, 'Pending')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${ord.status === 'Pending' ? 'bg-[#FF6B00] text-white shadow-md shadow-[#FF6B00]/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Pending</button>
+                          <button onClick={() => handleUpdateStatus(ord, 'Pending Verification' as any)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${ord.status === ('Pending Verification' as any) ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Pending Verification</button>
                           <button onClick={() => handleUpdateStatus(ord, 'Processing')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${ord.status === 'Processing' ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Processing</button>
                           <button onClick={() => handleUpdateStatus(ord, 'Completed')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${ord.status === 'Completed' ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Completed</button>
                           <button onClick={() => handleUpdateStatus(ord, 'Cancelled')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${ord.status === 'Cancelled' ? 'bg-red-500 text-white shadow-md shadow-red-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Cancelled</button>
@@ -1015,6 +1017,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <select value={productForm.promoBadge} onChange={e => setProductForm({...productForm, promoBadge: e.target.value})} className="w-full border border-blue-200 p-2.5 rounded-xl text-sm font-bold bg-white focus:outline-none focus:border-blue-500 mb-2">
                       <option value="">None</option>
                       <option value="Best Seller">Best Seller</option>
+                      <option value="Pending Verification">Pending Verification</option>
                       <option value="Top Selling">Top Selling</option>
                       <option value="Save 10%">Save 10%</option>
                       <option value="Save 20%">Save 20%</option>
@@ -1238,7 +1241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-5 border border-gray-200 rounded-2xl bg-white shadow-sm space-y-3">
                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-2">
-                  <img onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f3f4f6/a1a1aa?text=No+Image'; (e.target as HTMLImageElement).onerror = null; }} src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" className="w-5 h-5" alt="WA" />
+                  <img onError={(e) => { (e.target as HTMLImageElement).src = 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg'; (e.target as HTMLImageElement).onerror = null; }} src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" className="w-5 h-5" alt="WA" />
                 </div>
                 <label className="text-xs font-bold text-gray-500 block">WhatsApp Alert Number</label>
                 <input 
@@ -1355,8 +1358,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="max-w-3xl mx-auto text-center py-20">
             <div className="w-24 h-24 bg-gray-100 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-inner border border-gray-200">
                {activeTab === 'coupons' && <Tag className="w-10 h-10 text-gray-400" />}
-               {activeTab === 'reports' && <BarChart3 className="w-10 h-10 text-gray-400" />}
-               {activeTab === 'finance' && <DollarSign className="w-10 h-10 text-gray-400" />}
+               {activeTab === ('reports' as any) && <p className="text-gray-500">Reports Module Coming Soon</p>}
+               {activeTab === ('finance' as any) && <p className="text-gray-500">Finance Module Coming Soon</p>}
             </div>
             <h2 className="text-2xl font-black text-gray-800 mb-2 capitalize">{activeTab} Module (Pro)</h2>
             <p className="text-sm text-gray-500 font-medium max-w-md mx-auto leading-relaxed">

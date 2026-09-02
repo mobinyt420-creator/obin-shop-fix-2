@@ -1,19 +1,20 @@
+"use client";
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Header } from './components/Header';
-import { PromoSlider } from './components/PromoSlider';
-import { Categories } from './components/Categories';
-import { ProductCard } from './components/ProductCard';
-import { ProductDetailModal } from './components/ProductDetailModal';
-import { CheckoutView } from './components/CheckoutView';
-import { CartDrawer } from './components/CartDrawer';
-import { SidebarMenu } from './components/SidebarMenu';
-import { SearchModal } from './components/SearchModal';
-const AdminDashboard = React.lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+import { Header } from '../components/Header';
+import { PromoSlider } from '../components/PromoSlider';
+import { Categories } from '../components/Categories';
+import { ProductCard } from '../components/ProductCard';
+import { ProductDetailModal } from '../components/ProductDetailModal';
+import { CheckoutView } from '../components/CheckoutView';
+import { CartDrawer } from '../components/CartDrawer';
+import { SidebarMenu } from '../components/SidebarMenu';
+import { SearchModal } from '../components/SearchModal';
+const AdminDashboard = React.lazy(() => import('../components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { collection, addDoc, query, where, getDocs, onSnapshot, doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 
 // Universal Retry Wrapper
@@ -28,13 +29,13 @@ const withRetry = async (fn, retries = 3, delay = 1000) => {
   }
 };
 
-import { db, auth, storage, GOOGLE_SHEETS_WEBHOOK_URL, SECRET_ADMIN_EMAIL } from './firebase';
+import { db, auth, storage, GOOGLE_SHEETS_WEBHOOK_URL, SECRET_ADMIN_EMAIL } from '../firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth';
-import { CartItem, Product, Order, Slide, Category } from './types';
-import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES } from './data/products';
+import { CartItem, Product, Order, Slide, Category } from '../types';
+import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES } from '../data/products';
 import { motion, AnimatePresence } from 'motion/react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   ShoppingBag, ShoppingCart, Trash2, X, Plus, Minus, Search, Grid, Tag, 
   MapPin, User, ChevronDown, ChevronUp, LogOut, CheckCircle2, Phone, Sparkles, SlidersHorizontal, Home, Menu, Headphones,
@@ -227,8 +228,10 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [invalidProduct, setInvalidProduct] = useState(false);
 
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const location = { pathname: pathname || '/' }; // Mock location object for compatibility
+  const router = useRouter();
+  const navigate = (path: string, options?: any) => { if (options?.replace) { router.replace(path); } else { router.push(path); } };
 
   // Sync URL to State
   useEffect(() => {

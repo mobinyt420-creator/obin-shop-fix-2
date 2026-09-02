@@ -10,8 +10,8 @@ interface ProductDetailModalProps {
   product: Product;
   products?: Product[];
   onClose: () => void;
-  onAddToCart: (product: Product, quantity: number) => void;
-  onBuyNow: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number, size?: string, color?: string) => void;
+  onBuyNow: (product: Product, quantity: number, size?: string, color?: string) => void;
   onSelectProduct?: (product: Product) => void;
 }
 

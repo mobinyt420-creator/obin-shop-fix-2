@@ -17,6 +17,7 @@ interface CheckoutViewProps {
     deliveryCharge: number;
     discountAmount: number;
     finalTotal: number;
+    paymentScreenshotRef?: string;
   }) => void | Promise<void>;
   onEditCart: () => void;
   defaultProfile?: { name: string; phone: string; email: string; address: string };
@@ -78,7 +79,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       setIsUploadingImage(true);
-      const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '50be96ff0f81d113824bb8d3df6c6328';
+      const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY || '50be96ff0f81d113824bb8d3df6c6328';
       const formData = new FormData();
       formData.append('image', file);
       

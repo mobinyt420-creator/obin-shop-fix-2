@@ -43,6 +43,7 @@ export interface CartItem {
 
 export interface Order {
   id: string;
+  orderId?: string;
   items: CartItem[];
   deliveryAddress: {
     name: string;
@@ -51,8 +52,11 @@ export interface Order {
     city: string;
     area: string;
   } | null;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   orderNotes?: string;
-  paymentMethod: 'cod' | 'bkash' | 'online' | '';
+  paymentMethod: 'cod' | 'bkash' | 'online' | '' | string;
   totalProductPrice: number;
   vat: number;
   deliveryCharge: number;
@@ -60,8 +64,9 @@ export interface Order {
   discount: number;
   total: number;
   orderDate: string;
-  status: 'Pending' | 'Confirmed' | 'Delivered';
+  status: 'Pending' | 'Confirmed' | 'Delivered' | 'Pending Verification' | 'Processing' | 'Cancelled' | 'Returned' | string;
   createdAt?: string;
+  paymentScreenshotRef?: string | null;
 }
 
 export interface Category {
@@ -74,13 +79,15 @@ export interface Category {
 export interface Slide {
   id: string;
   title: string;
-  banglaTitle: string;
+  banglaTitle?: string;
   subtitle: string;
-  badge: string;
+  badge?: string;
   image: string;
-  ctaText: string;
-  colorTheme: string;
+  ctaText?: string;
+  colorTheme?: string;
   targetUrl?: string;
+  categoryId?: string;
+  buttonText?: string;
 }
 
 export interface PromoCode {
