@@ -315,6 +315,14 @@ export default function App() {
 
   // Cart & Orders Management
   const [cart, setCart] = useState<CartItem[]>([]);
+  
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem('shopping_cart');
+      if (savedCart) setCart(JSON.parse(savedCart));
+    } catch (e) {}
+  }, []);
+
   const cartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -450,7 +458,10 @@ export default function App() {
   // Save cart changes
   const saveCartToStorage = (updatedCart: CartItem[]) => {
     setCart(updatedCart);
-    };
+    try {
+      localStorage.setItem('shopping_cart', JSON.stringify(updatedCart));
+    } catch (e) {}
+  };
 
   // Cart helper actions
   const handleAddToCart = (product: Product, quantity: number = 1, silent: boolean = false, selectedSize?: string, selectedColor?: string) => {
@@ -587,7 +598,7 @@ export default function App() {
     
     // Set the order success explicitly (INSTANT UI UPDATE)
     setLastConfirmedOrder(newOrder);
-    setCart([]);
+    saveCartToStorage([]);
     setView('home');
         
     // Fire and forget Firebase background tasks
