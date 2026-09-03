@@ -33,7 +33,7 @@ import { db, auth, storage, GOOGLE_SHEETS_WEBHOOK_URL, SECRET_ADMIN_EMAIL } from
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth';
 import { CartItem, Product, Order, Slide, Category } from '../../types';
-import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES } from '../../data/products';
+import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES, INITIAL_SLIDES } from '../../data/products';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -44,10 +44,8 @@ import {
 
 export default function App() {
   
-  const [slides, setSlides] = useState<Slide[]>([]);
-
-  
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [slides, setSlides] = useState<Slide[]>(INITIAL_SLIDES);
+  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   
   const [supportNumber, setSupportNumber] = useState('01825000010');
   const [supportEmail, setSupportEmail] = useState('support@obinshop.com');
@@ -67,8 +65,8 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   useEffect(() => {
     // Load categories, banners, and products from cache on client mount
@@ -235,52 +233,64 @@ export default function App() {
     }
   };
 
-  // Product Detail Modal state & URL handling
-  const productIdFromUrl = pathname.startsWith('/product/') ? pathname.replace('/product/', '') : null;
-  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  // Product Detail Modal state
+  const [selectedProduct, setSelectedProductState] = useState<Product | null>(null);
   const [invalidProduct, setInvalidProduct] = useState(false);
 
-  // Sync direct URL or deep link navigation to activeProduct
+  // Sync deep link on direct URL load (/product/:id)
   useEffect(() => {
-    if (productIdFromUrl) {
-      if (products.length > 0) {
-        const found = products.find(p => p.id === productIdFromUrl);
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/product/')) {
+        const id = path.replace('/product/', '');
+        const found = products.find(p => p.id === id);
         if (found) {
-          setActiveProduct(found);
-          setInvalidProduct(false);
-        } else if (!productsLoading) {
+          setSelectedProductState(found);
+        } else if (products.length > 0) {
           setInvalidProduct(true);
         }
       }
-    } else {
-      setActiveProduct(null);
-      setInvalidProduct(false);
     }
-  }, [productIdFromUrl, products, productsLoading]);
+  }, [products]);
+
+  // Handle browser back / forward button for product modal
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/product/')) {
+        const id = path.replace('/product/', '');
+        const found = products.find(p => p.id === id);
+        if (found) setSelectedProductState(found);
+      } else {
+        setSelectedProductState(null);
+        setInvalidProduct(false);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products]);
 
   const handleCloseProductModal = () => {
-    setActiveProduct(null);
+    setSelectedProductState(null);
     setInvalidProduct(false);
-    if (pathname.startsWith('/product/')) {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
-        router.back();
-      } else {
-        router.push('/', { scroll: false });
-      }
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/product/')) {
+      window.history.pushState(null, '', '/');
     }
   };
 
   const setSelectedProduct = (p: Product | null | ((prev: Product | null) => Product | null)) => {
     if (!p) {
       handleCloseProductModal();
+    } else if (typeof p === 'function') {
+      setSelectedProductState(p);
     } else if (typeof p === 'object') {
-      setActiveProduct(p);
+      setSelectedProductState(p);
       setInvalidProduct(false);
-      router.push(`/product/${p.id}`, { scroll: false });
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/product/')) {
+        window.history.pushState({ productId: p.id }, '', `/product/${p.id}`);
+      }
     }
   };
-
-  const selectedProduct = activeProduct;
 
   const navigate = (path: string, options?: any) => {
     if (options?.replace) {
