@@ -5,16 +5,16 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Header } from '../components/Header';
-import { PromoSlider } from '../components/PromoSlider';
-import { Categories } from '../components/Categories';
-import { ProductCard } from '../components/ProductCard';
-import { ProductDetailModal } from '../components/ProductDetailModal';
-import { CheckoutView } from '../components/CheckoutView';
-import { CartDrawer } from '../components/CartDrawer';
-import { SidebarMenu } from '../components/SidebarMenu';
-import { SearchModal } from '../components/SearchModal';
-const AdminDashboard = React.lazy(() => import('../components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+import { Header } from '../../components/Header';
+import { PromoSlider } from '../../components/PromoSlider';
+import { Categories } from '../../components/Categories';
+import { ProductCard } from '../../components/ProductCard';
+import { ProductDetailModal } from '../../components/ProductDetailModal';
+import { CheckoutView } from '../../components/CheckoutView';
+import { CartDrawer } from '../../components/CartDrawer';
+import { SidebarMenu } from '../../components/SidebarMenu';
+import { SearchModal } from '../../components/SearchModal';
+const AdminDashboard = React.lazy(() => import('../../components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { collection, addDoc, query, where, getDocs, onSnapshot, doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 
 // Universal Retry Wrapper
@@ -29,11 +29,11 @@ const withRetry = async (fn, retries = 3, delay = 1000) => {
   }
 };
 
-import { db, auth, storage, GOOGLE_SHEETS_WEBHOOK_URL, SECRET_ADMIN_EMAIL } from '../firebase';
+import { db, auth, storage, GOOGLE_SHEETS_WEBHOOK_URL, SECRET_ADMIN_EMAIL } from '../../firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged } from 'firebase/auth';
-import { CartItem, Product, Order, Slide, Category } from '../types';
-import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES } from '../data/products';
+import { CartItem, Product, Order, Slide, Category } from '../../types';
+import { PRODUCTS, CATEGORIES as MOCK_CATEGORIES } from '../../data/products';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -67,25 +67,26 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const cached = localStorage.getItem('cached_products');
-      if (cached) return JSON.parse(cached);
-    } catch(e) {}
-    return [];
-  });
-  
-  // If we have cached products, don't show the loading skeleton!
-  const [productsLoading, setProductsLoading] = useState(() => {
-    try {
-      const cached = localStorage.getItem('cached_products');
-      return !cached;
-    } catch(e) {
-      return true;
-    }
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
+    // Load categories, banners, and products from cache on client mount
+    try {
+      const cached = localStorage.getItem('cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+          setProductsLoading(false);
+        }
+      }
+      const cachedCats = localStorage.getItem('cached_categories');
+      if (cachedCats) setCategories(JSON.parse(cachedCats));
+      const cachedBanners = localStorage.getItem('cached_banners');
+      if (cachedBanners) setSlides(JSON.parse(cachedBanners));
+    } catch(e) {}
+
     if (!db) {
       setProducts(PRODUCTS);
       setCategories(MOCK_CATEGORIES);
@@ -101,19 +102,11 @@ export default function App() {
       return;
     }
     
-    // Load categories and banners from cache first
-    try {
-      const cachedCats = localStorage.getItem('cached_categories');
-      if (cachedCats) setCategories(JSON.parse(cachedCats));
-      const cachedBanners = localStorage.getItem('cached_banners');
-      if (cachedBanners) setSlides(JSON.parse(cachedBanners));
-    } catch(e) {}
-
     // Check if we are opening a specific product deep link
-    const path = typeof window !== 'undefined' ? window.location.hash : '';
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
     let initialProductId: string | null = null;
-    if (path.startsWith('#/product/')) {
-      initialProductId = path.replace('#/product/', '');
+    if (path.startsWith('/product/')) {
+      initialProductId = path.replace('/product/', '');
     }
 
     if (initialProductId) {
@@ -125,7 +118,9 @@ export default function App() {
             // Avoid duplicate if the main subscription already added it
             if (prev.find(p => p.id === prod.id)) return prev;
             const updated = [prod, ...prev];
-            localStorage.setItem('cached_products', JSON.stringify(updated));
+            try {
+              localStorage.setItem('cached_products', JSON.stringify(updated));
+            } catch(e) {}
             return updated;
           });
           setProductsLoading(false); // Page becomes usable instantly!
@@ -210,96 +205,97 @@ export default function App() {
       return { ...prev, [section]: current + 4 };
     });
   };
-  const [view, setView] = useState<'home' | 'search' | 'checkout' | 'account' | 'admin' | 'category_products' | 'offers'>(() => {
-    const hash = typeof window !== 'undefined' ? window.location.hash : '';
-    if (hash.startsWith('#/checkout')) return 'checkout';
-    if (hash.startsWith('#/account')) return 'account';
-    if (hash.startsWith('#/admin')) return 'admin';
-    if (hash.startsWith('#/search')) return 'search';
-    if (hash.startsWith('#/offers')) return 'offers';
-    if (hash.startsWith('#/category/')) return 'category_products';
+  const pathname = usePathname() || '/';
+  const router = useRouter();
+
+  // Derive active view directly from URL
+  const view: 'home' | 'search' | 'checkout' | 'account' | 'admin' | 'category_products' | 'offers' = React.useMemo(() => {
+    if (pathname === '/checkout') return 'checkout';
+    if (pathname === '/account') return 'account';
+    if (pathname === '/admin') return 'admin';
+    if (pathname === '/search') return 'search';
+    if (pathname === '/offers') return 'offers';
+    if (pathname.startsWith('/category/')) return 'category_products';
     return 'home';
-  });
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    const hash = typeof window !== 'undefined' ? window.location.hash : '';
-    if (hash.startsWith('#/category/')) return hash.replace('#/category/', '');
+  }, [pathname]);
+
+  // Derive selected category directly from URL
+  const selectedCategory = React.useMemo(() => {
+    if (pathname.startsWith('/category/')) {
+      return pathname.replace('/category/', '') || 'all';
+    }
     return 'all';
-  });
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  }, [pathname]);
+
+  const setSelectedCategory = (catId: string) => {
+    if (!catId || catId === 'all') {
+      router.push('/');
+    } else {
+      router.push(`/category/${catId}`);
+    }
+  };
+
+  // Product Detail Modal state & URL handling
+  const productIdFromUrl = pathname.startsWith('/product/') ? pathname.replace('/product/', '') : null;
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [invalidProduct, setInvalidProduct] = useState(false);
 
-  const pathname = usePathname();
-  const location = { pathname: pathname || '/' }; // Mock location object for compatibility
-  const router = useRouter();
-  const navigate = (path: string, options?: any) => { if (options?.replace) { router.replace(path); } else { router.push(path); } };
-
-  // Sync URL to State
+  // Sync direct URL or deep link navigation to activeProduct
   useEffect(() => {
-    const path = location.pathname;
-    if (path.startsWith('/product/') && !productsLoading) {
-      const pid = path.replace('/product/', '');
-      const prod = products.find(p => p.id === pid);
-      if (prod && (!selectedProduct || selectedProduct.id !== prod.id)) {
-        setSelectedProduct(prod);
-        setInvalidProduct(false);
-      } else if (!prod && !selectedProduct) {
-        setInvalidProduct(true);
+    if (productIdFromUrl) {
+      if (products.length > 0) {
+        const found = products.find(p => p.id === productIdFromUrl);
+        if (found) {
+          setActiveProduct(found);
+          setInvalidProduct(false);
+        } else if (!productsLoading) {
+          setInvalidProduct(true);
+        }
       }
-    } else if (path.startsWith('/category/')) {
-      const cid = path.replace('/category/', '');
-      if (selectedCategory !== cid || view !== 'category_products') {
-        setSelectedCategory(cid);
-        setView('category_products');
-        setSelectedProduct(null);
-        setInvalidProduct(false);
-      }
-    } else if (path === '/checkout' && view !== 'checkout') {
-      setView('checkout');
-      setSelectedProduct(null);
-      setInvalidProduct(false);
-    } else if (path === '/account' && view !== 'account') {
-      setView('account');
-      setSelectedProduct(null);
-      setInvalidProduct(false);
-    } else if (path === '/search' && view !== 'search') {
-      setView('search');
-      setSelectedProduct(null);
-      setInvalidProduct(false);
-    } else if (path === '/admin' && view !== 'admin') {
-      setView('admin');
-      setSelectedProduct(null);
-      setInvalidProduct(false);
-    } else if (path === '/offers' && view !== 'offers') {
-      setView('offers');
-      setSelectedProduct(null);
-      setInvalidProduct(false);
-    } else if (path === '/' && (view !== 'home' || selectedCategory !== 'all' || selectedProduct !== null)) {
-      if (view !== 'home') setView('home');
-      if (selectedCategory !== 'all') setSelectedCategory('all');
-      if (selectedProduct !== null) setSelectedProduct(null);
+    } else {
+      setActiveProduct(null);
       setInvalidProduct(false);
     }
-  }, [location.pathname, products, productsLoading]);
+  }, [productIdFromUrl, products, productsLoading]);
 
-  // Sync State to URL
-  useEffect(() => {
-    let targetPath = '/';
-    if (selectedProduct) targetPath = `/product/${selectedProduct.id}`;
-    else if (invalidProduct) targetPath = location.pathname; // keep the invalid product URL
-    else if (view === 'category_products' && selectedCategory && selectedCategory !== 'all') targetPath = `/category/${selectedCategory}`;
-    else if (view === 'checkout') targetPath = '/checkout';
-    else if (view === 'account') targetPath = '/account';
-    else if (view === 'admin') targetPath = '/admin';
-    else if (view === 'search') targetPath = '/search';
-    else if (view === 'offers') targetPath = '/offers';
-
-    // Avoid redirecting prematurely if waiting for products
-    if (location.pathname.startsWith('/product/') && productsLoading && !selectedProduct) return;
-
-    if (location.pathname !== targetPath) {
-      navigate(targetPath, { replace: true });
+  const handleCloseProductModal = () => {
+    setActiveProduct(null);
+    setInvalidProduct(false);
+    if (pathname.startsWith('/product/')) {
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push('/', { scroll: false });
+      }
     }
-  }, [view, selectedCategory, selectedProduct, invalidProduct, productsLoading]);
+  };
+
+  const setSelectedProduct = (p: Product | null | ((prev: Product | null) => Product | null)) => {
+    if (!p) {
+      handleCloseProductModal();
+    } else if (typeof p === 'object') {
+      setActiveProduct(p);
+      setInvalidProduct(false);
+      router.push(`/product/${p.id}`, { scroll: false });
+    }
+  };
+
+  const selectedProduct = activeProduct;
+
+  const navigate = (path: string, options?: any) => {
+    if (options?.replace) {
+      router.replace(path, { scroll: options?.scroll ?? true });
+    } else {
+      router.push(path, { scroll: options?.scroll ?? true });
+    }
+  };
+
+  const setView = (v: any) => {
+    const target = typeof v === 'function' ? v(view) : v;
+    if (target === 'home') router.push('/');
+    else if (target === 'category_products') router.push(`/category/${selectedCategory || 'all'}`);
+    else router.push(`/${target}`);
+  };
 
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -340,8 +336,7 @@ export default function App() {
         setUserProfile(prev => ({ ...prev, email: user.email || '' }));
         if (user.email === SECRET_ADMIN_EMAIL) {
           setIsAdmin(true);
-          // If we are currently on the account view, or just loading up, maybe show admin
-          if (view === 'account' || view === 'home') {
+          if (view === 'account') {
             setView('admin');
           }
         } else {

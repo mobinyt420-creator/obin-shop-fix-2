@@ -34,7 +34,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onBuyNow,
   onSelectProduct
 }) => {
-  const [activeImageIndex, setActiveImageIndex] = useState(() => (product.images.length >= 2 ? 1 : 0));
+  const [activeImageIndex, setActiveImageIndex] = useState(() => (product?.images && product.images.length >= 2 ? 1 : 0));
   const [showMoreDesc, setShowMoreDesc] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
 
